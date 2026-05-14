@@ -38,3 +38,11 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 ---
 
 Add whatever helps you do your job. This is your cheat sheet.
+
+### 微信通道（openclaw-weixin）
+- **channel**: `openclaw-weixin`
+- **chat_id**: `o9cq80-SweyJhsPdNEG5APmpgO6U@im.wechat`
+- **accountId**: `37507b6f702e-im-bot`
+- **message target**: `o9cq80-SweyJhsPdNEG5APmpgO6U@im.wechat`
+- **已验证双向通**：2026-05-11 测试通过
+- **注意**：发消息用 `message` 工具，channel 填 `openclaw-weixin`，target 填上面的 chat_id

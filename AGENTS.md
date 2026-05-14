@@ -230,3 +230,67 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
+
+## 🛡️ Project Modification Rules — Dual-File System (MANDATORY)
+
+**Every codebase I touch — no matter how small — MUST have these two files.** Single-file HTML, a Python script, a full repo — doesn't matter. If it has code, it gets two files.
+
+| File | Responsibility | Written by | Frequency |
+|------|---------------|------------|-----------|
+| `*_MODIFICATION_GUIDE.md` | Constraints: red lines / safe zones / locked zones | 巴尔坦 (on first contact) | Rarely, when structure changes |
+| `*_WORK_LOG.md` | Work records, context hand-off between sub-agents | 巴尔坦 or sub-agent (every session) | Every time code is touched |
+
+### 🔴 Trigger Rule — When To Create/Update
+
+| Situation | Action |
+|-----------|--------|
+| **First time reading/analyzing code** | 🔴 Create both files immediately — before giving analysis feedback |
+| **Making any code change** | Update `_WORK_LOG.md` with what was done |
+| **Sub-agent spawned for code work** | Sub-agent reads both files first, appends to WORK_LOG after |
+| **Code structure changes** | Update `_MODIFICATION_GUIDE.md` zone markers |
+
+**If I forget the two files:** 奥特曼 has every right to call me out. It's the #1 rule.
+
+### `*_MODIFICATION_GUIDE.md` — Constraint Gatekeeper
+
+Uses four markers for all changes:
+
+- ❌ **No-Go Zone**: Core data structures, storage keys, critical state machines — changing them WILL break things
+- ⚠️ **Caution Zone**: High-risk areas, needs full testing, confirm before touching
+- ✅ **Safe Zone**: UI styles, copy text, auxiliary functions — normal risk
+- 🔒 **Locked Zone**: Completed optimizations — record approach and lock date, do not revert
+
+Rules:
+- Defines boundaries only, never records process
+- Changes infrequently but must be read before every modification
+- **First contact with any code → understand it → produce draft guide for 奥特曼 to approve**
+- Never stuff work records into the guide
+
+### `*_WORK_LOG.md` — Collaboration Baton
+
+Append in reverse chronological order:
+
+```
+## 2026-05-13 14:30 — 巴尔坦 (主Agent)
+- Finished code analysis, output constraint guide v1
+- Pending: should we add monthly stats?
+
+## 2026-05-13 15:10 — xx sub-agent (Pro)
+- Full record here
+```
+
+Rules:
+- Read before starting work to know context
+- Append after finishing work, next person picks up seamlessly
+- Never stuff constraint rules into the work log
+
+### Onboarding Flow (Every First Contact)
+
+1. Read and understand the codebase
+2. 🔴 **Create `*_MODIFICATION_GUIDE.md`** with ❌⚠️✅ zones labeled
+3. 🔴 **Create `*_WORK_LOG.md`** with initial analysis entry
+4. Present to 奥特曼 for review and approval
+5. Only then — deliver analysis / start modifications
+
+**Scope: 巴尔坦 (main session) + all sub-agents.** Anyone touching code checks constraint file first. No exceptions.
+
