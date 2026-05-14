@@ -2625,10 +2625,8 @@ A：使用菜单栏「配置管理」功能：
         if hasattr(toolbar, 'home'):
             toolbar.home = self.reset_to_original_view
         
-        # 绑定滚轮缩放事件 - 只在右侧图表区域生效
-        self.canvas_plot_widget.bind("<MouseWheel>", self.on_scroll)
-        self.canvas_plot_widget.bind("<Button-4>", self.on_scroll)
-        self.canvas_plot_widget.bind("<Button-5>", self.on_scroll)
+        # 绑定滚轮缩放事件 - 使用 matplotlib 的 mpl_connect 绑定 scroll_event
+        self.canvas_plot.mpl_connect('scroll_event', self.on_scroll)
         
         # 绑定鼠标点击事件 - 显示数据点信息
         self.canvas_plot.mpl_connect('button_press_event', self.on_plot_click)
@@ -2659,6 +2657,7 @@ A：使用菜单栏「配置管理」功能：
         # 鼠标拖动平移相关变量
         self.drag_start = None  # 拖动起始位置
         self.drag_xlim = None  # 拖动时的X轴范围
+        self.drag_ylim = None  # 拖动时的Y轴范围
     
     def _create_batch_analysis_widgets(self, parent_frame, mode="runtime"):
         """创建批量分析的界面组件
@@ -6490,7 +6489,7 @@ A：使用菜单栏「配置管理」功能：
             messagebox.showerror("错误", f"生成图表失败：{str(e)}\n\n{traceback.format_exc()}")
             
     def on_scroll(self, event):
-        """处理鼠标滚轮缩放事件 - 简化版"""
+        """处理鼠标滚轮缩放事件 - 支持 matplotlib scroll_event"""
         try:
             # 检查是否有数据
             if self.df is None:
@@ -6503,13 +6502,23 @@ A：使用菜单栏「配置管理」功能：
             # 缩放倍率
             zoom_step = 1.1
             
-            # 确定缩放因子
-            if event.delta > 0 or event.num == 4:
-                # 向上滚动，放大
-                scale = 1 / zoom_step
-            elif event.delta < 0 or event.num == 5:
-                # 向下滚动，缩小
-                scale = zoom_step
+            # 确定缩放因子 - matplotlib scroll_event 使用 button 属性
+            if hasattr(event, 'button'):
+                # matplotlib scroll_event: button 是 'up' 或 'down'
+                if event.button == 'up':
+                    scale = 1 / zoom_step
+                elif event.button == 'down':
+                    scale = zoom_step
+                else:
+                    return
+            elif hasattr(event, 'delta'):
+                # tkinter MouseWheel 事件
+                if event.delta > 0:
+                    scale = 1 / zoom_step
+                elif event.delta < 0:
+                    scale = zoom_step
+                else:
+                    return
             else:
                 return
             
@@ -7080,9 +7089,10 @@ A：使用菜单栏「配置管理」功能：
             if event.inaxes != self.ax:
                 return
             
-            # 记录拖动起始位置和X轴范围
-            self.drag_start = event.x
+            # 记录拖动起始位置和坐标轴范围（X和Y）
+            self.drag_start = (event.x, event.y)
             self.drag_xlim = self.ax.get_xlim()
+            self.drag_ylim = self.ax.get_ylim()
             
         except Exception as e:
             print(f"[ERROR mouse_press] {str(e)}")
@@ -7093,41 +7103,38 @@ A：使用菜单栏「配置管理」功能：
             # 清除拖动状态
             self.drag_start = None
             self.drag_xlim = None
+            self.drag_ylim = None
             
         except Exception as e:
             print(f"[ERROR mouse_release] {str(e)}")
     
     def on_mouse_drag(self, event):
-        """处理鼠标拖动事件 - 平移图表"""
+        """处理鼠标拖动事件 - 平移图表（X和Y轴）"""
         try:
             # 检查是否处于拖动状态
-            if self.drag_start is None or self.drag_xlim is None:
+            if self.drag_start is None or self.drag_xlim is None or self.drag_ylim is None:
                 return
             
             # 只在图表区域内响应拖动
             if event.inaxes != self.ax:
                 return
             
-            # 计算拖动距离
-            dx = event.x - self.drag_start
+            # 计算拖动距离（像素）
+            dx = event.x - self.drag_start[0]
+            dy = event.y - self.drag_start[1]
             
-            # 计算平移量（将像素距离转换为数据坐标）
+            # ========== X轴平移 ==========
             xlim = self.ax.get_xlim()
             xlim_range = xlim[1] - xlim[0]
-            
-            # 获取图表宽度的像素值
-            # 获取图表宽度的像素值 - 使用 tkinter 组件宽度
             width_pixels = self.canvas_plot_widget.winfo_width()
             
-            # 计算平移比例
             if width_pixels > 0:
-                shift_ratio = dx / width_pixels
-                data_shift = xlim_range * shift_ratio
+                shift_ratio_x = dx / width_pixels
+                data_shift_x = xlim_range * shift_ratio_x
                 
-                # 计算新的X轴范围
                 new_xlim = [
-                    self.drag_xlim[0] - data_shift,
-                    self.drag_xlim[1] - data_shift
+                    self.drag_xlim[0] - data_shift_x,
+                    self.drag_xlim[1] - data_shift_x
                 ]
                 
                 # 限制X轴范围不超过原始范围
@@ -7143,15 +7150,44 @@ A：使用菜单栏「配置管理」功能：
                             self.original_xlim[1]
                         ]
                 
-                # 应用新的X轴范围
                 self.ax.set_xlim(new_xlim)
+            
+            # ========== Y轴平移 ==========
+            ylim = self.ax.get_ylim()
+            ylim_range = ylim[1] - ylim[0]
+            height_pixels = self.canvas_plot_widget.winfo_height()
+            
+            if height_pixels > 0:
+                # dy 为正表示鼠标向下移动，数据应该向上移动（视觉上画面向下）
+                shift_ratio_y = dy / height_pixels
+                data_shift_y = ylim_range * shift_ratio_y
                 
-                # 更新时间精度（如果需要）
-                if self.time_column and pd.api.types.is_datetime64_any_dtype(self.df[self.time_column]):
-                    self.update_time_precision(new_xlim)
+                new_ylim = [
+                    self.drag_ylim[0] - data_shift_y,
+                    self.drag_ylim[1] - data_shift_y
+                ]
                 
-                # 重新绘制图表
-                self.canvas_plot.draw()
+                # 限制Y轴范围不超过原始范围
+                if self.original_ylim is not None:
+                    if new_ylim[0] < self.original_ylim[0]:
+                        new_ylim = [
+                            self.original_ylim[0],
+                            self.original_ylim[0] + ylim_range
+                        ]
+                    elif new_ylim[1] > self.original_ylim[1]:
+                        new_ylim = [
+                            self.original_ylim[1] - ylim_range,
+                            self.original_ylim[1]
+                        ]
+                
+                self.ax.set_ylim(new_ylim)
+            
+            # 更新时间精度（如果需要）
+            if self.time_column and pd.api.types.is_datetime64_any_dtype(self.df[self.time_column]):
+                self.update_time_precision(new_xlim)
+            
+            # 重新绘制图表
+            self.canvas_plot.draw()
             
         except Exception as e:
             print(f"[ERROR mouse_drag] {str(e)}")
